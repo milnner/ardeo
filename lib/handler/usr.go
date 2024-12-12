@@ -38,11 +38,12 @@ func (u *UserBody) ToUser() *models.User {
 }
 
 type UserHandler struct {
+	jwt utils.JWTUtil
 	rps *repository.Repository
 }
 
-func NewUserHandler(rps *repository.Repository) *UserHandler {
-	return &UserHandler{rps: rps}
+func NewUserHandler(jwt utils.JWTUtil, rps *repository.Repository) *UserHandler {
+	return &UserHandler{jwt: jwt, rps: rps}
 }
 
 func (h *UserHandler) HandleCreateUser(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
@@ -60,4 +61,30 @@ func (h *UserHandler) HandleCreateUser(ctx context.Context, req events.APIGatewa
 		return utils.ErrorResponse(http.StatusInternalServerError, &r), nil
 	}
 	return utils.SuccessResponse(http.StatusCreated, user, map[string]string{"Content-Type": "application/json"}), nil
+}
+
+func (h *UserHandler) HandlerSignInUser(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	user := &UserBody{}
+	err := json.Unmarshal([]byte(req.Body), user)
+	if err != nil {
+		r := fmt.Sprintf("Invalid request body: %v", err)
+		return utils.ErrorResponse(http.StatusUnprocessableEntity, &r), nil
+	}
+
+	var token string
+	srv := services.
+		NewSignInUserService(
+			user.ToUser(),
+			&user.Password,
+			&token,
+			h.jwt,
+			h.rps,
+		)
+
+	if err = srv.Run(); err != nil {
+		r := fmt.Sprintf("Failed to sign in user: %v", err)
+		return utils.ErrorResponse(http.StatusUnauthorized, &r), nil
+	}
+
+	return utils.SuccessResponse(http.StatusOK, "", map[string]string{"Content-Type": "application/json", "Authorization": fmt.Sprintf("Bearer %s", token)}), nil
 }
