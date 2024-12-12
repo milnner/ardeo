@@ -31,6 +31,15 @@ type User struct {
 	PasswordHash string `cql:"passwordHash" json:"passwordHash"`
 }
 
+func (u *User) ToUserFaultHashPassword() *User {
+	return &User{
+		Email:       u.Email,
+		UUID:        u.UUID,
+		IsProfessor: u.IsProfessor,
+		Name:        u.Name,
+	}
+}
+
 type OQNAAct struct { // One question N Answer
 	/*
 		UserUUID é o identificador de usuário para relacionar a atividade com o usuário
